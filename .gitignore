@@ -14,3 +14,7 @@ data/
 .ruff_cache/
 .DS_Store
 /index03.bin
+
+/index04.bin
+.coverage
+.hypothesis/

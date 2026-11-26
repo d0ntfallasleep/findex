@@ -1,12 +1,14 @@
 import json
 import pickle
+from collections.abc import Generator
 from contextlib import contextmanager
+from pathlib import Path
 
 from findex.models import DocMeta, Index, Posting
 from findex.timing import timed
 
 
-def save(index, path):
+def save(index: Index, path: Path) -> None:
     if path.suffix != ".json":
         with path.open("wb") as file:
             pickle.dump(index, file, protocol=pickle.HIGHEST_PROTOCOL)
@@ -23,7 +25,7 @@ def save(index, path):
 
 
 @timed
-def load(path):
+def load(path: Path) -> Index:
     if path.suffix != ".json":
         # pickle може виконати код під час читання. Відкриваємо лише власний індекс.
         with path.open("rb") as file:
@@ -43,7 +45,7 @@ def load(path):
 
 
 @contextmanager
-def open_index(path):
+def open_index(path: Path) -> Generator[Index, None, None]:
     index = load(path)
     try:
         yield index

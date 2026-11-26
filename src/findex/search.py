@@ -1,17 +1,23 @@
 import argparse
 import time
 import tracemalloc
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Literal
 
+from findex.models import Index
 from findex.query import parse, positive_words
 from findex.ranking import BM25, TfIdf, snippet
 from findex.ranking import search as ranked_search
 from findex.store import load, open_index
 from findex.tokenize import tokenize
 
+type Engine = Literal["merge", "set"]
+type Operation = Literal["OR", "AND", "NOT"]
 
-def merge(left, right, op):
-    result = []
+
+def merge(left: Sequence[int], right: Sequence[int], op: Operation) -> list[int]:
+    result: list[int] = []
     i = j = 0
     while i < len(left) and j < len(right):
         a, b = left[i], right[j]
@@ -35,7 +41,9 @@ def merge(left, right, op):
     return result
 
 
-def combine(left, right, op, engine):
+def combine(
+    left: Sequence[int], right: Sequence[int], op: Operation, engine: Engine
+) -> list[int]:
     if engine == "merge":
         return merge(left, right, op)
     a, b = set(left), set(right)
@@ -46,9 +54,9 @@ def combine(left, right, op, engine):
     return sorted(a - b)
 
 
-def search(index, query, engine="merge"):
+def search(index: Index, query: str, engine: Engine = "merge") -> list[int]:
     # Лише великі AND/OR/NOT є операторами. OR ділить запит на групи.
-    parts = []
+    parts: list[str] = []
     for word in query.split():
         if word in ("AND", "OR", "NOT"):
             parts.append(word)
@@ -56,7 +64,7 @@ def search(index, query, engine="merge"):
             parts.extend(tokenize(word))
     if not parts:
         return []
-    result = []
+    result: list[int] = []
     group = None
     negate = False
     need_term = True
@@ -66,7 +74,7 @@ def search(index, query, engine="merge"):
             need_term = True
             continue
         if part in ("OR", "AND"):
-            if need_term:
+            if need_term or group is None:
                 raise ValueError("Перед оператором потрібен терм")
             if part == "OR":
                 result = combine(result, group, "OR", engine)
@@ -83,12 +91,12 @@ def search(index, query, engine="merge"):
             group = combine(group, ids, "AND", engine)
         negate = False
         need_term = False
-    if need_term:
+    if need_term or group is None:
         raise ValueError("Після оператора потрібен терм")
     return combine(result, group, "OR", engine)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Boolean-пошук")
     parser.add_argument("index", type=Path)
     parser.add_argument("query")

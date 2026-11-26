@@ -1,6 +1,5 @@
+import logging
 import re
-import sys
-from collections import Counter
 from dataclasses import dataclass, field
 from heapq import nlargest
 from math import log, log1p
@@ -17,7 +16,7 @@ class Scorer(Protocol):
 
 
 class TfIdf:
-    def score(self, term, posting, index):
+    def score(self, term: str, posting: Posting, index: Index) -> float:
         idf = 1 + log((1 + index.num_docs) / (1 + index.df(term)))
         return (1 + log(posting.tf)) * idf
 
@@ -27,7 +26,7 @@ class BM25:
     k1: float = 1.5
     b: float = 0.75
 
-    def score(self, term, posting, index):
+    def score(self, term: str, posting: Posting, index: Index) -> float:
         df = index.df(term)
         idf = log1p((index.num_docs - df + 0.5) / (df + 0.5))
         ratio = index.doc_length(posting.doc_id) / index.avg_doc_length
@@ -44,31 +43,35 @@ class SearchResult:
 
 
 @timed
-def search(index, query, scorer: Scorer = BM25(), k=10):
+def search(
+    index: Index, query: str, scorer: Scorer = BM25(), k: int = 10
+) -> list[SearchResult]:
     tree = parse(query)
     before = index.matching.cache_info().hits
     ids = index.matching(tree)
     hit = index.matching.cache_info().hits > before
-    print(f"cache {'hit' if hit else 'miss'}: {query}", file=sys.stderr)
-    scores = Counter()
-    best = {}
+    logging.getLogger(__name__).debug(f"cache {'hit' if hit else 'miss'}: {query}")
+    scores: dict[int, float] = {}
+    best: dict[int, tuple[float, str]] = {}
     for word in dict.fromkeys(positive_words(tree)):
         for posting in index.postings.get(word, ()):
             i = posting.doc_id
             if i in ids:
                 value = scorer.score(word, posting, index)
-                scores[i] += value
+                scores[i] = scores.get(i, 0.0) + value
                 if i not in best or value > best[i][0]:
                     best[i] = (value, word)
     results = (
-        SearchResult(scores[i], i, index.docs[i].title, best.get(i, (0, ""))[1])
+        SearchResult(
+            scores.get(i, 0.0), i, index.docs[i].title, best.get(i, (0, ""))[1]
+        )
         for i in ids
     )
     return nlargest(k, results)
 
 
-def snippet(text, best, terms):
-    words = []
+def snippet(text: str, best: str, terms: set[str]) -> str:
+    words: list[tuple[int, int, str]] = []
     for match in re.finditer(r"[^\W_]+(?:['’ʼ][^\W_]+)*", text):
         word = next(tokenize(match.group()), "")
         if word in terms:

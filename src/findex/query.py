@@ -1,17 +1,24 @@
+from __future__ import annotations
+
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass
 
+from findex.models import Index
 from findex.tokenize import tokenize
 
 
 class Node:
-    def __and__(self, other):
+    def evaluate(self, index: Index) -> set[int]:
+        raise NotImplementedError
+
+    def __and__(self, other: Node) -> Node:
         return And(self, other)
 
-    def __or__(self, other):
+    def __or__(self, other: Node) -> Node:
         return Or(self, other)
 
-    def __invert__(self):
+    def __invert__(self) -> Node:
         return Not(self)
 
 
@@ -19,7 +26,7 @@ class Node:
 class Term(Node):
     word: str
 
-    def evaluate(self, index):
+    def evaluate(self, index: Index) -> set[int]:
         return {p.doc_id for p in index.postings.get(self.word, ())}
 
 
@@ -27,12 +34,12 @@ class Term(Node):
 class Phrase(Node):
     words: tuple[str, ...]
 
-    def evaluate(self, index):
+    def evaluate(self, index: Index) -> set[int]:
         if index.positions is None:
             raise ValueError("Перебудуй індекс із --positions")
         lists = [index.positions.get(w, {}) for w in self.words]
-        found = set()
-        for doc in set.intersection(*(set(row) for row in lists)):
+        found: set[int] = set()
+        for doc in set(lists[0]).intersection(*lists[1:]):
             starts = set(lists[0][doc])
             for offset, row in enumerate(lists[1:], 1):
                 starts.intersection_update(pos - offset for pos in row[doc])
@@ -46,7 +53,7 @@ class And(Node):
     left: Node
     right: Node
 
-    def evaluate(self, index):
+    def evaluate(self, index: Index) -> set[int]:
         return self.left.evaluate(index) & self.right.evaluate(index)
 
 
@@ -55,7 +62,7 @@ class Or(Node):
     left: Node
     right: Node
 
-    def evaluate(self, index):
+    def evaluate(self, index: Index) -> set[int]:
         return self.left.evaluate(index) | self.right.evaluate(index)
 
 
@@ -63,12 +70,12 @@ class Or(Node):
 class Not(Node):
     child: Node
 
-    def evaluate(self, index):
+    def evaluate(self, index: Index) -> set[int]:
         return set(range(index.num_docs)) - self.child.evaluate(index)
 
 
-def parse(query):
-    tokens = []
+def parse(query: str) -> Node:
+    tokens: list[str | Node] = []
     for part in re.findall(r'"[^"]*"|[()"]|[^\s()"]+', query):
         if part == '"':
             raise ValueError("Незакриті лапки")
@@ -83,10 +90,10 @@ def parse(query):
             tokens.extend(Term(w) for w in tokenize(part))
     pos = 0
 
-    def peek():
+    def peek() -> str | Node | None:
         return tokens[pos] if pos < len(tokens) else None
 
-    def atom():
+    def atom() -> Node:
         nonlocal pos
         item = peek()
         pos += 1
@@ -102,7 +109,7 @@ def parse(query):
             return item
         raise ValueError("Очікується слово, фраза або група")
 
-    def conjunction():
+    def conjunction() -> Node:
         nonlocal pos
         tree = atom()
         while peek() not in (None, ")", "OR"):
@@ -111,7 +118,7 @@ def parse(query):
             tree = tree & atom()
         return tree
 
-    def expression():
+    def expression() -> Node:
         nonlocal pos
         tree = conjunction()
         while peek() == "OR":
@@ -125,7 +132,7 @@ def parse(query):
     return tree
 
 
-def positive_words(node, positive=True):
+def positive_words(node: Node, positive: bool = True) -> Iterator[str]:
     if isinstance(node, Not):
         yield from positive_words(node.child, not positive)
     elif isinstance(node, (And, Or)):
@@ -134,5 +141,5 @@ def positive_words(node, positive=True):
     elif positive:
         if isinstance(node, Term):
             yield node.word
-        else:
+        elif isinstance(node, Phrase):
             yield from node.words

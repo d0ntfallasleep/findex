@@ -2,9 +2,11 @@ import argparse
 import time
 import tracemalloc
 from collections import Counter, defaultdict
+from collections.abc import Iterable
+from itertools import islice
 from pathlib import Path
 
-from findex.corpus import iter_documents
+from findex.corpus import Document, iter_documents
 from findex.models import DocMeta, Index, Posting
 from findex.store import save
 from findex.timing import timed
@@ -12,12 +14,18 @@ from findex.tokenize import tokenize
 
 
 @timed
-def build_index(root: Path, positions=False):
-    postings = defaultdict(list)
-    docs = []
-    offsets = defaultdict(dict) if positions else None
-    for doc_id, doc in enumerate(iter_documents(root)):
-        counts = Counter()
+def build_index(root: Path, positions: bool = False, limit: int | None = None) -> Index:
+    return build_documents(islice(iter_documents(root), limit), positions)
+
+
+def build_documents(documents: Iterable[Document], positions: bool) -> Index:
+    postings: defaultdict[str, list[Posting]] = defaultdict(list)
+    docs: list[DocMeta] = []
+    offsets: defaultdict[str, dict[int, list[int]]] | None = (
+        defaultdict(dict) if positions else None
+    )
+    for doc_id, doc in enumerate(documents):
+        counts: Counter[str] = Counter()
         for pos, term in enumerate(tokenize(doc.text)):
             counts[term] += 1
             if offsets is not None:
@@ -26,10 +34,10 @@ def build_index(root: Path, positions=False):
             postings[term].append(Posting(doc_id, tf))
         title = doc.text.partition("\n")[0].strip() or doc.path.stem
         docs.append(DocMeta(doc.doc_id, title, counts.total()))
-    return Index(dict(postings), docs, dict(offsets) if positions else None)
+    return Index(dict(postings), docs, dict(offsets) if offsets is not None else None)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Побудова інвертованого індексу")
     parser.add_argument("root", type=Path)
     parser.add_argument("--out", type=Path, required=True)

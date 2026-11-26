@@ -11,7 +11,7 @@ from findex.tokenize import tokenize
 
 
 def lazy_stats(documents: Iterable[Document]) -> tuple[int, Counter[str]]:
-    counts = Counter()
+    counts: Counter[str] = Counter()
     doc_count = 0
     for document in documents:
         doc_count += 1
@@ -22,13 +22,13 @@ def lazy_stats(documents: Iterable[Document]) -> tuple[int, Counter[str]]:
 def eager_stats(documents: Iterable[Document]) -> tuple[int, Counter[str]]:
     docs = list(documents)
     token_lists = [list(tokenize(doc.text)) for doc in docs]
-    counts = Counter()
+    counts: Counter[str] = Counter()
     for tokens in token_lists:
         counts.update(tokens)
     return len(docs), counts
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Статистика корпусу текстів")
     parser.add_argument("root", type=Path, help="папка з .txt файлами")
     parser.add_argument("--limit", type=int, help="скільки документів обробити")

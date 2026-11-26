@@ -1,5 +1,7 @@
 # findex · Лабораторна №1
 
+[![CI](https://github.com/d0ntfallasleep/findex/actions/workflows/ci.yml/badge.svg)](https://github.com/d0ntfallasleep/findex/actions/workflows/ci.yml)
+
 Перший крок до пошукової системи на Python. Програма проходить папку з текстами, рахує слова і виводить 50 найчастіших разом з кількістю входжень.
 
 ## Корпус
@@ -149,3 +151,38 @@ search: 0.30 ms
 cache hit: "falling star" OR ogilvy
 search: 0.08 ms
  ```
+
+## Лабораторна 4. Встановлення і CLI
+
+Потрібен Python 3.12 або новіший. У каталозі репозиторію виконай `uv tool install .`. Якщо команду ще не видно у терміналі, виконай `uv tool update-shell` і відкрий новий термінал. Після публікації релізу встановити пакет можна без клонування:
+
+```bash
+uv tool install https://github.com/d0ntfallasleep/findex/releases/download/v0.4.0/findex-0.4.0-py3-none-any.whl
+findex --help
+```
+
+Корпус лежить окремо від пакета. Нижче команди з каталогу, що містить папку data. З іншого каталогу передай шляхи до корпусу та індексу. Для сніпетів вкажи той самий корпус через --data.
+
+```bash
+findex index data --out index04.bin --positions
+findex search index04.bin '"thunder child"' --k 3 --data data
+findex -vv search index04.bin 'mars OR earth' --scorer tfidf --json > hits.jsonl
+findex stats index04.bin
+```
+
+Кожен рядок hits.jsonl описує один результат. Час пошуку з’являється в stderr при -v, а повідомлення кешу — при -vv. Для швидкої проби можна додати --limit 3 під час індексації. Двійковий pickle-індекс відкриваю лише з довіреного джерела.
+
+### Перевірки
+
+```bash
+uv sync --locked
+uv run ruff check .
+uv run ruff format --check .
+uv run pyright
+uv run pytest --cov=findex --cov-report=term-missing
+uv build --wheel
+```
+
+На Python 3.12 пройшли 37 тестів. Покриття рядків пакета — 79%, нового CLI — 99%. У вимір входять усі модулі src/findex. Окремо не тестував старі консольні оболонки argparse з перших лабораторних, вигляд смуги прогресу та поведінку реальної файлової системи при відмові в доступі. Основний сценарій користувача тестую через CliRunner. Hypothesis генерує корпуси для перевірки серіалізації та порядку постінгів, а також пари множин для порівняння з merge. Перевірка типів охоплює весь src/findex у режимі strict.
+
+CI запускає перевірки при push і pull request. При публікації тегу v0.4.0 після успішних перевірок workflow створює GitHub Release і прикріплює до нього перевірений wheel.
