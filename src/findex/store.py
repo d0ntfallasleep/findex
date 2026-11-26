@@ -1,7 +1,9 @@
 import json
 import pickle
+from contextlib import contextmanager
 
 from findex.models import DocMeta, Index, Posting
+from findex.timing import timed
 
 
 def save(index, path):
@@ -20,6 +22,7 @@ def save(index, path):
         json.dump(data, file, ensure_ascii=False, separators=(",", ":"))
 
 
+@timed
 def load(path):
     if path.suffix != ".json":
         # pickle може виконати код під час читання. Відкриваємо лише власний індекс.
@@ -37,3 +40,13 @@ def load(path):
             t: {int(i): ps for i, ps in rows.items()} for t, rows in positions.items()
         }
     return Index(postings, docs, positions)
+
+
+@contextmanager
+def open_index(path):
+    index = load(path)
+    try:
+        yield index
+    finally:
+        if "matching" in vars(index):
+            index.matching.cache_clear()

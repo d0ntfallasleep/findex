@@ -7,9 +7,11 @@ from pathlib import Path
 from findex.corpus import iter_documents
 from findex.models import DocMeta, Index, Posting
 from findex.store import save
+from findex.timing import timed
 from findex.tokenize import tokenize
 
 
+@timed
 def build_index(root: Path, positions=False):
     postings = defaultdict(list)
     docs = []

@@ -3,7 +3,10 @@ import time
 import tracemalloc
 from pathlib import Path
 
-from findex.store import load
+from findex.query import parse, positive_words
+from findex.ranking import BM25, TfIdf, snippet
+from findex.ranking import search as ranked_search
+from findex.store import load, open_index
 from findex.tokenize import tokenize
 
 
@@ -89,8 +92,29 @@ def main():
     parser = argparse.ArgumentParser(description="Boolean-пошук")
     parser.add_argument("index", type=Path)
     parser.add_argument("query")
-    parser.add_argument("--engine", choices=["merge", "set"], default="merge")
+    parser.add_argument("--engine", choices=["merge", "set"], default=None)
+    parser.add_argument("--scorer", choices=("bm25", "tfidf"), default="bm25")
+    parser.add_argument("--top", type=int, default=10)
+    parser.add_argument("--data", type=Path, default=Path("data"))
     args = parser.parse_args()
+    if args.engine is None:
+        scorer = BM25() if args.scorer == "bm25" else TfIdf()
+        with open_index(args.index) as ix:
+            try:
+                results = ranked_search(ix, args.query, scorer, args.top)
+                terms = set(positive_words(parse(args.query)))
+            except ValueError as error:
+                parser.error(str(error))
+            for result in results:
+                print(f"{result.score:.3f}  {result.title}")
+                path = args.data / ix.docs[result.doc_id].path
+                if path.is_file():
+                    print(
+                        snippet(
+                            path.read_text(encoding="utf-8"), result.best_term, terms
+                        )
+                    )
+        return
     tracemalloc.start()
     start = time.perf_counter()
     index = load(args.index)
