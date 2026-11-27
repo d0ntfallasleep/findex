@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from collections import Counter
@@ -46,7 +47,7 @@ def index(
     limit: Annotated[int | None, typer.Option(min=0)] = None,
 ) -> None:
     with errors():
-        if not corpus.is_dir():
+        if not (corpus.is_dir() or (corpus.is_file() and corpus.suffix == ".jsonl")):
             raise ValueError(f"Папку корпусу не знайдено: {corpus}")
         with Progress(console=Console(stderr=True)) as progress:
             task = progress.add_task("Індексація", total=None)
@@ -110,3 +111,18 @@ def stats(index: Path) -> None:
         for term, count in terms.most_common(50):
             table.add_row(term, str(count))
         Console().print(table)
+
+
+@app.command("crawl")
+def crawl_command(
+    seed_url: str,
+    max_pages: Annotated[int, typer.Option(min=1)] = 500,
+    concurrency: Annotated[int, typer.Option(min=1)] = 10,
+    per_host: Annotated[int, typer.Option(min=1)] = 2,
+    delay: Annotated[float, typer.Option(min=0)] = 0.05,
+    out: Path = Path("data/crawl.jsonl"),
+) -> None:
+    from findex.crawler.command import collect
+
+    with errors():
+        asyncio.run(collect(seed_url, max_pages, concurrency, per_host, delay, out))

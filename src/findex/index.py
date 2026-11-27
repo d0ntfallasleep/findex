@@ -10,7 +10,7 @@ from itertools import islice
 from pathlib import Path
 from typing import Literal
 
-from findex.corpus import Document, read_documents
+from findex.corpus import Document, corpus_paths, iter_documents, read_documents
 from findex.models import DocMeta, Index, Posting
 from findex.store import save
 from findex.timing import timed
@@ -69,8 +69,12 @@ def build_index(
 ) -> Index:
     if workers < 1:
         raise ValueError("workers має бути додатним")
-    paths = root.rglob("*.txt")
-    batch = list(islice(paths, limit))
+    paths = list(corpus_paths(root))
+    if any(p.suffix == ".jsonl" for p in paths):
+        # Один JSONL може містити багато документів. Читаємо рядки послідовно.
+        return build_documents(islice(iter_documents(root), limit), positions)
+    path_iter = iter(paths)
+    batch = list(islice(path_iter, limit))
     chunks: list[Chunk] = []
     partials: list[Index] = []
     processed = 0
@@ -101,7 +105,7 @@ def build_index(
         valid += sum(len(p.docs) for p in ready)
         processed += len(batch)
         batch = (
-            list(islice(paths, limit - valid))
+            list(islice(path_iter, limit - valid))
             if limit is not None and valid < limit
             else []
         )

@@ -18,3 +18,6 @@ data/
 /index04.bin
 .coverage
 .hypothesis/
+
+/crawl.log
+/index06.bin
