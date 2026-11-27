@@ -4,7 +4,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./
 COPY src src
 COPY scripts/prepare_data.py scripts/prepare_data.py
-RUN uv sync --locked --no-dev --no-editable && python scripts/prepare_data.py && .venv/bin/findex index data --positions --out index07.bin
+RUN uv sync --locked --no-dev --no-editable && python scripts/prepare_data.py && .venv/bin/findex index data --positions --out index07.bin && .venv/bin/findex pack index07.bin --out packed
 
 FROM python:3.12-slim
 WORKDIR /app
@@ -12,6 +12,8 @@ RUN useradd --system --uid 10001 findex
 COPY --from=build /app/.venv /app/.venv
 COPY --from=build /app/data /app/data
 COPY --from=build /app/index07.bin /app/index07.bin
+COPY --from=build /app/packed /app/packed
+ENV PACKED_PATH=/app/packed
 ENV PATH="/app/.venv/bin:$PATH" INDEX_PATH=/app/index07.bin DATA_PATH=/app/data HOST=0.0.0.0 PORT=8000 PYTHONUNBUFFERED=1
 USER 10001
 EXPOSE 8000

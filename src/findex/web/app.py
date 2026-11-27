@@ -17,8 +17,9 @@ from pydantic import BaseModel, Field
 from findex.corpus import iter_documents
 from findex.models import Index
 from findex.query import parse, positive_words
-from findex.ranking import BM25, TfIdf, search, snippet
+from findex.ranking import BM25, TfIdf, snippet
 from findex.store import load
+from findex.vector import Packed, search
 
 log = logging.getLogger(__name__)
 base = Path(__file__).parent
@@ -47,6 +48,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.size = 0
     try:
         ix = load(cfg.index_path)
+        if folder := os.getenv("PACKED_PATH"):
+            ix.packed = Packed.read(Path(folder))
         app.state.texts = {doc.doc_id: doc.text for doc in iter_documents(cfg.data)}
         app.state.size = cfg.index_path.stat().st_size
         app.state.index = ix
@@ -138,7 +141,7 @@ def document(doc_id: int, request: Request, ix: Ix) -> DocumentOut:
     )
 
 
-app = FastAPI(title="findex", version="0.7.0", lifespan=lifespan)
+app = FastAPI(title="findex", version="1.0.0", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=base / "static"), name="static")
 app.get("/search")(search_route)
 app.get("/docs/{doc_id}")(document)

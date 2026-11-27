@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from findex.query import Node
+    from findex.vector import Packed
 from dataclasses import dataclass
 from functools import cached_property, lru_cache
 
@@ -78,3 +79,9 @@ class Index:
 
     def __getstate__(self) -> dict[str, object]:
         return {key: getattr(self, key) for key in ("docs", "postings", "positions")}
+
+    @cached_property
+    def packed(self) -> Packed:
+        from findex.vector import Packed
+
+        return Packed.build(self)

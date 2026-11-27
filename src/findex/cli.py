@@ -16,8 +16,8 @@ from rich.text import Text
 from findex.index import Executor, build_index
 from findex.query import parse, positive_words
 from findex.ranking import BM25, TfIdf, snippet
-from findex.ranking import search as ranked_search
 from findex.store import open_index, save
+from findex.vector import search as ranked_search
 
 app = typer.Typer(help="Пошук у текстовому корпусі.")
 
@@ -137,3 +137,10 @@ def serve(
     import uvicorn
 
     uvicorn.run("findex.web.app:app", host=host, port=port, workers=workers)
+
+
+@app.command()
+def pack(index: Path, out: Annotated[Path, typer.Option("--out")]) -> None:
+    """Зберегти масиви для memmap і стиснену копію з різницями doc_id."""
+    with errors(), open_index(index) as ix:
+        ix.packed.write(out)

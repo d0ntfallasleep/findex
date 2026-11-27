@@ -18,14 +18,14 @@ jobs:
       - run: uv build --wheel
       - run: uv tool install dist/*.whl && cd /tmp && "$(uv tool dir --bin)/findex" --help
       - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/tags/v0.4.0'
+        if: github.ref == 'refs/tags/v1.0.0'
         with:
           name: wheel
           path: dist/*.whl
 
   release:
     needs: check
-    if: github.event_name == 'push' && github.ref == 'refs/tags/v0.4.0'
+    if: github.event_name == 'push' && github.ref == 'refs/tags/v1.0.0'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -37,8 +37,8 @@ jobs:
       - env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.4.0 -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload v0.4.0 dist/*.whl --clobber -R "$GITHUB_REPOSITORY"
+          if gh release view v1.0.0 -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload v1.0.0 dist/*.whl --clobber -R "$GITHUB_REPOSITORY"
           else
-            gh release create v0.4.0 dist/*.whl --verify-tag -R "$GITHUB_REPOSITORY" --title "findex 0.4.0" --notes "CLI: index, search, stats"
+            gh release create v1.0.0 dist/*.whl --verify-tag -R "$GITHUB_REPOSITORY" --title "findex 1.0.0" --notes "CLI: index, search, stats"
           fi
