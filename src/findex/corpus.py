@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import NamedTuple
 
@@ -12,8 +12,8 @@ class Document(NamedTuple):
     text: str
 
 
-def iter_documents(root: Path) -> Iterator[Document]:
-    for path in root.rglob("*.txt"):
+def read_documents(root: Path, paths: Iterable[Path]) -> Iterator[Document]:
+    for path in paths:
         try:
             text = path.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError) as error:
@@ -21,3 +21,7 @@ def iter_documents(root: Path) -> Iterator[Document]:
             continue
 
         yield Document(path.relative_to(root).as_posix(), path, text)
+
+
+def iter_documents(root: Path) -> Iterator[Document]:
+    yield from read_documents(root, root.rglob("*.txt"))

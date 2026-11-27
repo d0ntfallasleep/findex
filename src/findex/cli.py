@@ -3,7 +3,6 @@ import logging
 from collections import Counter
 from collections.abc import Generator
 from contextlib import contextmanager
-from itertools import islice
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -13,8 +12,7 @@ from rich.progress import Progress
 from rich.table import Table
 from rich.text import Text
 
-from findex.corpus import iter_documents
-from findex.index import build_documents
+from findex.index import Executor, build_index
 from findex.query import parse, positive_words
 from findex.ranking import BM25, TfIdf, snippet
 from findex.ranking import search as ranked_search
@@ -43,16 +41,17 @@ def index(
     corpus: Path,
     out: Annotated[Path, typer.Option("--out")],
     positions: bool = False,
+    workers: Annotated[int, typer.Option(min=1)] = 1,
+    executor: Executor = "serial",
     limit: Annotated[int | None, typer.Option(min=0)] = None,
 ) -> None:
     with errors():
         if not corpus.is_dir():
             raise ValueError(f"Папку корпусу не знайдено: {corpus}")
-        docs = islice(iter_documents(corpus), limit)
         with Progress(console=Console(stderr=True)) as progress:
-            ix = build_documents(
-                progress.track(docs, total=limit, description="Індексація"), positions
-            )
+            task = progress.add_task("Індексація", total=None)
+            ix = build_index(corpus, positions, limit, workers, executor)
+            progress.update(task, total=1, completed=1)
         save(ix, out)
         typer.echo(f"{ix.num_docs} документів, {len(ix)} термів")
 
