@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block body %}
+<h1>Пошук у корпусі</h1><form action="/"><label for="q">Слова або фраза в лапках</label><div><input id="q" name="q" value="{{ q }}" required maxlength="500" placeholder='"thunder child"'><button>Знайти</button></div></form>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+{% if result %}<p>{{ result.total }} документів · {{ "%.1f"|format(result.took_ms) }} мс</p>
+{% for h in result.results %}<article><h2><a href="/doc/{{ h.doc_id }}">{{ h.title }}</a></h2><small>BM25 · {{ "%.3f"|format(h.score) }}</small><p>{% for s in h.snippet.split('**') %}{% if loop.index is even %}<mark>{{ s }}</mark>{% else %}{{ s }}{% endif %}{% endfor %}</p></article>{% endfor %}
+<nav>{% if page>1 %}<a href="?q={{ q|urlencode }}&amp;page={{ page-1 }}">← Назад</a>{% endif %}{% if result.total>page*5 %}<a href="?q={{ q|urlencode }}&amp;page={{ page+1 }}">Далі →</a>{% endif %}</nav>{% endif %}{% endblock %}

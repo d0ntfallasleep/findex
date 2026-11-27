@@ -126,3 +126,14 @@ def crawl_command(
 
     with errors():
         asyncio.run(collect(seed_url, max_pages, concurrency, per_host, delay, out))
+
+
+@app.command()
+def serve(
+    port: Annotated[int, typer.Option(min=1, max=65535, envvar="PORT")] = 8000,
+    workers: Annotated[int, typer.Option(min=1, envvar="WEB_WORKERS")] = 1,
+    host: Annotated[str, typer.Option(envvar="HOST")] = "127.0.0.1",
+) -> None:
+    import uvicorn
+
+    uvicorn.run("findex.web.app:app", host=host, port=port, workers=workers)

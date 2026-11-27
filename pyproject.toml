@@ -1,13 +1,16 @@
 [project]
 name = "findex"
-version = "0.4.0"
+version = "0.7.0"
 description = "Статистика текстового корпусу для навчальної пошукової системи"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi>=0.165.0",
     "httpx>=0.29.0",
+    "jinja2>=3.1.6",
     "rich>=15.0.0",
     "typer>=0.19",
+    "uvicorn>=0.54.0",
 ]
 
 [build-system]
